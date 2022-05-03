@@ -25,6 +25,14 @@ using transport = gridtools::ghex::tl::ucx_tag;
 using transport = gridtools::ghex::tl::mpi_tag;
 #endif
 
+#ifndef HOST_NAME_MAX
+#ifdef __APPLE__
+#define HOST_NAME_MAX 255
+#else
+#define HOST_NAME_MAX 64
+#endif
+#endif
+
 using context_type = gridtools::ghex::tl::context<transport>;
 
 // test locality by collecting all local ranks
