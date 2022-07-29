@@ -8,26 +8,33 @@
 # Please, refer to the LICENSE file in the root directory.
 # SPDX-License-Identifier: BSD-3-Clause
 
-from typing import Tuple
-
-import numpy as np
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
 import ghex_py_bindings as _ghex
 from ghex.utils.cpp_wrapper_utils import CppWrapper, dtype_to_cpp, unwrap
-from ghex.utils.index_space import CartesianSet, ProductSet, union
+from ghex.utils.index_space import ProductSet, union
+
+if TYPE_CHECKING:
+    import numpy as np
+    from typing import Literal, Union
+
+    from ghex.tl import Context
+    from ghex.utils.index_space import CartesianSet
+
 
 # todo: call HaloContainer?
 class HaloContainer:
     local: CartesianSet
     global_: CartesianSet
 
-    def __init__(self, local: CartesianSet, global_: CartesianSet):
+    def __init__(self, local: CartesianSet, global_: CartesianSet) -> None:
         self.local = local
         self.global_ = global_
 
 
 class DomainDescriptor(CppWrapper):
-    def __init__(self, id_: int, sub_domain_indices: ProductSet):
+    def __init__(self, id_: int, sub_domain_indices: ProductSet) -> None:
         super(DomainDescriptor, self).__init__(
             ("gridtools::ghex::structured::regular::domain_descriptor", "int", 3),
             id_,
@@ -37,7 +44,12 @@ class DomainDescriptor(CppWrapper):
 
 
 class HaloGenerator(CppWrapper):
-    def __init__(self, glob_domain_indices: ProductSet, halos, periodicity):
+    def __init__(
+        self,
+        glob_domain_indices: ProductSet,
+        halos: tuple[Union[int, tuple[int, int]], ...],
+        periodicity: tuple[bool, ...],
+    ) -> None:
         assert glob_domain_indices.dim == len(halos)
         assert glob_domain_indices.dim == len(periodicity)
 
@@ -53,7 +65,7 @@ class HaloGenerator(CppWrapper):
             periodicity,
         )
 
-    def __call__(self, domain: DomainDescriptor):
+    def __call__(self, domain: DomainDescriptor) -> HaloContainer:
         result = self.__wrapped_call__("__call__", domain)
 
         local = union(
@@ -74,7 +86,7 @@ class HaloGenerator(CppWrapper):
 # todo: try importing gt4py to see if it's there, avoiding the dependency
 
 
-def _layout_order(field):
+def _layout_order(field: np.ndarray) -> tuple[int, ...]:
     ordered_strides = list(reversed(sorted(field.strides)))
     layout_map = tuple(ordered_strides.index(stride) for stride in field.strides)
     return layout_map
@@ -85,9 +97,9 @@ class FieldDescriptor(CppWrapper):
         self,
         domain_desc: DomainDescriptor,
         field: np.ndarray,
-        offsets: Tuple[int, ...],
-        extents: Tuple[int, ...],
-    ):
+        offsets: tuple[int, ...],
+        extents: tuple[int, ...],
+    ) -> None:
         type_spec = (
             "gridtools::ghex::structured::regular::field_descriptor",
             dtype_to_cpp(field.dtype),
@@ -103,7 +115,9 @@ def wrap_field(*args):
 
 
 class CommunicationObject(CppWrapper):
-    def __init__(self, device, layout_map, communicator):
+    def __init__(
+        self, device: Literal["cpu", "gpu"], layout_map: tuple[int, ...], communicator
+    ) -> None:
         type_spec = (
             "CommunicationObjectWrapper",
             f"gridtools::ghex::{device}",
@@ -117,7 +131,14 @@ class CommunicationObject(CppWrapper):
 
 
 class PatternContainer(CppWrapper):
-    def __init__(self, device, layout_map, context, halo_generator, domain_range):
+    def __init__(
+        self,
+        device: Literal["cpu", "gpu"],
+        layout_map: tuple[int, ...],
+        context: Context,
+        halo_generator: HaloGenerator,
+        domain_range: tuple[DomainDescriptor, ...],
+    ) -> None:
         type_spec = (
             "PatternContainerWrapper",
             f"gridtools::ghex::{device}",
