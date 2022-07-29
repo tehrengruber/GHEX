@@ -75,11 +75,9 @@ class HaloGenerator(CppWrapper):
 
 
 def _layout_order(field):
-    if sorted(field.strides) == list(reversed(field.strides)):  # row-major
-        return range(0, len(field.strides))
-    elif sorted(field.strides) == list(field.strides):  # column-major
-        return range(len(field.strides), 0)
-    return sorted(range(len(field.strides)), key=field.strides.__getitem__, reverse=True)
+    ordered_strides = list(reversed(sorted(field.strides)))
+    layout_map = tuple(ordered_strides.index(stride) for stride in field.strides)
+    return layout_map
 
 
 class FieldDescriptor(CppWrapper):
