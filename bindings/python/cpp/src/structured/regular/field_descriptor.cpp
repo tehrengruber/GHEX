@@ -33,9 +33,17 @@ using int_tuple_constant = gridtools::meta::list<std::integral_constant<int, val
 namespace detail {
     using args = gridtools::meta::cartesian_product<
         gridtools::ghex::bindings::python::type_list::data_types,
-        gridtools::meta::list<gridtools::ghex::cpu>,
-        gridtools::meta::list<gridtools::ghex::structured::regular::domain_descriptor<int, std::integral_constant<int, 3>>>,
-        gridtools::meta::list< ::gridtools::layout_map<0,1,2>,  ::gridtools::layout_map<2,1,0>>>;
+        gridtools::ghex::bindings::python::type_list::architecture_types,
+        gridtools::meta::list<
+            gridtools::ghex::structured::regular::domain_descriptor<int, std::integral_constant<int, 3>>
+        >,
+        gridtools::meta::list<
+            ::gridtools::layout_map<0, 1, 2>,
+            ::gridtools::layout_map<2, 1, 0>,
+            ::gridtools::layout_map<1, 2, 0>,
+            ::gridtools::layout_map<2, 0, 1>
+        >
+    >;
 
     template<typename T, typename Arch, typename DomainDescriptor, typename Layout>
     using field_descriptor_type = gridtools::ghex::structured::regular::field_descriptor<
