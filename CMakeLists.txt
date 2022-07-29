@@ -225,7 +225,11 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
 
     find_python_module(mpi4py)
 
-    pybind11_add_module(ghex_py_bindings bindings/python/cpp/src/ghex.cpp bindings/python/cpp/src/structured/regular/domain_descriptor.cpp bindings/python/cpp/src/structured/regular/field_descriptor.cpp bindings/python/cpp/src/structured/regular/halo_generator.cpp bindings/python/cpp/src/transport_layer/context.cpp)
+    pybind11_add_module(ghex_py_bindings
+        bindings/python/cpp/src/ghex.cpp
+        bindings/python/cpp/src/structured/regular/domain_descriptor.cpp bindings/python/cpp/src/structured/regular/field_descriptor.cpp bindings/python/cpp/src/structured/regular/halo_generator.cpp
+        bindings/python/cpp/src/transport_layer/context.cpp
+        bindings/python/cpp/src/wrappers/buffer_info.cpp bindings/python/cpp/src/wrappers/communication_handle.cpp bindings/python/cpp/src/wrappers/communication_object.cpp bindings/python/cpp/src/wrappers/pattern_container.cpp)
     target_include_directories(ghex_py_bindings PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/bindings/python/cpp/include")
     if (HAVE_MPI4PY)
         target_include_directories(ghex_py_bindings PRIVATE "${PY_MPI4PY}/include")
