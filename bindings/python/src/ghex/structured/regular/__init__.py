@@ -25,11 +25,16 @@ class HaloContainer:
         self.local = local
         self.global_ = global_
 
+
 class DomainDescriptor(CppWrapper):
     def __init__(self, id_: int, sub_domain_indices: ProductSet):
         super(DomainDescriptor, self).__init__(
             ("gridtools::ghex::structured::regular::domain_descriptor", "int", 3),
-            id_, sub_domain_indices[0, 0, 0], sub_domain_indices[-1, -1, -1])
+            id_,
+            sub_domain_indices[0, 0, 0],
+            sub_domain_indices[-1, -1, -1],
+        )
+
 
 class HaloGenerator(CppWrapper):
     def __init__(self, glob_domain_indices: ProductSet, halos, periodicity):
@@ -42,17 +47,32 @@ class HaloGenerator(CppWrapper):
 
         super(HaloGenerator, self).__init__(
             ("gridtools::ghex::structured::regular::halo_generator", "int", 3),
-            glob_domain_indices[0, 0, 0], glob_domain_indices[-1, -1, -1], flattened_halos, periodicity)
+            glob_domain_indices[0, 0, 0],
+            glob_domain_indices[-1, -1, -1],
+            flattened_halos,
+            periodicity,
+        )
 
     def __call__(self, domain: DomainDescriptor):
         result = self.__wrapped_call__("__call__", domain)
 
-        local = union(*(ProductSet.from_coords(tuple(box2.local.first), tuple(box2.local.last)) for box2 in result))
-        global_ = union(*(ProductSet.from_coords(tuple(box2.global_.first), tuple(box2.global_.last)) for box2 in result))
+        local = union(
+            *(
+                ProductSet.from_coords(tuple(box2.local.first), tuple(box2.local.last))
+                for box2 in result
+            )
+        )
+        global_ = union(
+            *(
+                ProductSet.from_coords(tuple(box2.global_.first), tuple(box2.global_.last))
+                for box2 in result
+            )
+        )
         return HaloContainer(local, global_)
 
 
 # todo: try importing gt4py to see if it's there, avoiding the dependency
+
 
 def _layout_order(field):
     if sorted(field.strides) == list(reversed(field.strides)):  # row-major
@@ -63,11 +83,21 @@ def _layout_order(field):
 
 
 class FieldDescriptor(CppWrapper):
-    def __init__(self, domain_desc: DomainDescriptor, field: np.ndarray, offsets: Tuple[int, ...], extents: Tuple[int, ...]):
-        type_spec = ("gridtools::ghex::structured::regular::field_descriptor",
-                     dtype_to_cpp(field.dtype), "gridtools::ghex::cpu", domain_desc.__cpp_type__,
-                     f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ")
+    def __init__(
+        self,
+        domain_desc: DomainDescriptor,
+        field: np.ndarray,
+        offsets: Tuple[int, ...],
+        extents: Tuple[int, ...],
+    ):
+        type_spec = (
+            "gridtools::ghex::structured::regular::field_descriptor",
+            dtype_to_cpp(field.dtype),
+            "gridtools::ghex::cpu",
+            domain_desc.__cpp_type__,
+            f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ",
+        )
         super(FieldDescriptor, self).__init__(type_spec, domain_desc, field, offsets, extents)
 
+
 def wrap_field(*args):
-    return FieldDescriptor(*args)
