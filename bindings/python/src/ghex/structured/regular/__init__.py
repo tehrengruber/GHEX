@@ -13,7 +13,7 @@ from typing import Tuple
 import numpy as np
 
 import ghex_py_bindings as _ghex
-from ghex.utils.cpp_wrapper_utils import CppWrapper, dtype_to_cpp
+from ghex.utils.cpp_wrapper_utils import CppWrapper, dtype_to_cpp, unwrap
 from ghex.utils.index_space import CartesianSet, ProductSet, union
 
 # todo: call HaloContainer?
@@ -99,3 +99,37 @@ class FieldDescriptor(CppWrapper):
 
 
 def wrap_field(*args):
+    return FieldDescriptor(*args)
+
+
+class CommunicationObject(CppWrapper):
+    def __init__(self, device, layout_map, communicator):
+        type_spec = (
+            "CommunicationObjectWrapper",
+            f"gridtools::ghex::{device}",
+            "gridtools::ghex::structured::grid",
+            "gridtools::ghex::tl::mpi_tag",
+            "gridtools::ghex::structured::regular::halo_generator<int, std::integral_constant<int, 3> >",
+            "gridtools::ghex::structured::regular::domain_descriptor<int, std::integral_constant<int, 3> >",
+            f"gridtools::layout_map<{', '.join(map(str, layout_map))}> ",
+        )
+        super(CommunicationObject, self).__init__(type_spec, communicator)
+
+
+class PatternContainer(CppWrapper):
+    def __init__(self, device, layout_map, context, halo_generator, domain_range):
+        type_spec = (
+            "PatternContainerWrapper",
+            f"gridtools::ghex::{device}",
+            "gridtools::ghex::structured::grid",
+            "gridtools::ghex::tl::mpi_tag",
+            "gridtools::ghex::structured::regular::halo_generator<int, std::integral_constant<int, 3> >",
+            "gridtools::ghex::structured::regular::domain_descriptor<int, std::integral_constant<int, 3> >",
+            f"gridtools::layout_map<{', '.join(map(str, layout_map))}> ",
+        )
+        super(PatternContainer, self).__init__(
+            type_spec,
+            unwrap(context),
+            unwrap(halo_generator),
+            [unwrap(d) for d in domain_range],
+        )
