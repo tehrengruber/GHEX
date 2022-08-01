@@ -95,6 +95,7 @@ def _layout_order(field: np.ndarray) -> tuple[int, ...]:
 class FieldDescriptor(CppWrapper):
     def __init__(
         self,
+        device: Literal["cpu", "gpu"],
         domain_desc: DomainDescriptor,
         field: np.ndarray,
         offsets: tuple[int, ...],
@@ -103,7 +104,7 @@ class FieldDescriptor(CppWrapper):
         type_spec = (
             "gridtools::ghex::structured::regular::field_descriptor",
             dtype_to_cpp(field.dtype),
-            "gridtools::ghex::cpu",
+            f"gridtools::ghex::{device}",
             domain_desc.__cpp_type__,
             f"gridtools::layout_map<{', '.join(map(str, _layout_order(field)))}> ",
         )
@@ -119,7 +120,7 @@ class CommunicationObject(CppWrapper):
         self, device: Literal["cpu", "gpu"], layout_map: tuple[int, ...], communicator
     ) -> None:
         type_spec = (
-            "CommunicationObjectWrapper",
+            "communication_object_wrapper",
             f"gridtools::ghex::{device}",
             "gridtools::ghex::structured::grid",
             "gridtools::ghex::tl::mpi_tag",
@@ -140,7 +141,7 @@ class PatternContainer(CppWrapper):
         domain_range: tuple[DomainDescriptor, ...],
     ) -> None:
         type_spec = (
-            "PatternContainerWrapper",
+            "pattern_container_wrapper",
             f"gridtools::ghex::{device}",
             "gridtools::ghex::structured::grid",
             "gridtools::ghex::tl::mpi_tag",
