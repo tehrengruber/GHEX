@@ -24,7 +24,7 @@
 
 
 template <typename Arch, typename GridType, typename Transport, typename HaloGenerator, typename Domain, typename Layout>
-struct Definitions{
+struct definitions{
     using grid_t = typename GridType::template type<Domain>;
     using context_t = typename gridtools::ghex::tl::context_factory<Transport>::context_type;
     using domain_id_t = typename Domain::domain_id_type;

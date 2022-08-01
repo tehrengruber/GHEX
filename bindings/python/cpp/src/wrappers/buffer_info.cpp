@@ -9,28 +9,18 @@
  *
  */
 
-#include <pybind11/pybind11.h>
-
-#include <ghex/bindings/python/utils/type_exporter.hpp>
 #include <ghex/bindings/python/wrappers/buffer_info.hpp>
 #include <ghex/bindings/python/wrappers/specializations.hpp>
 
-namespace py = pybind11;
-
 
 namespace detail {
-    template <typename Arch, typename GridType, typename Transport, typename HaloGenerator, typename Domain, typename Layout>
-    using buffer_info_wrapper = BufferInfoWrapper<Arch, GridType, Transport, HaloGenerator, Domain, Layout>;
 
-    using buffer_info_wrapper_specializations = gridtools::meta::transform<gridtools::meta::rename<buffer_info_wrapper>::template apply, args>;
+    template <typename Arch, typename GridType, typename Transport, typename HaloGenerator, typename Domain, typename Layout>
+    using buffer_info_w = buffer_info_wrapper<Arch, GridType, Transport, HaloGenerator, Domain, Layout>;
+
+    using specializations = gridtools::meta::transform<gridtools::meta::rename<buffer_info_w>::template apply, args_cpu>;
+
 }
 
 
-template <typename Arch, typename GridType, typename Transport, typename HaloGenerator, typename Domain, typename Layout>
-struct type_exporter<BufferInfoWrapper<Arch, GridType, Transport, HaloGenerator, Domain, Layout>> {
-    using buffer_info_wrapper = BufferInfoWrapper<Arch, GridType, Transport, HaloGenerator, Domain, Layout>;
-    void operator() (pybind11::module_&, py::class_<buffer_info_wrapper>) {};
-};
-
-
-GHEX_PYBIND11_EXPORT_TYPE(type_exporter, detail::buffer_info_wrapper_specializations)
+GHEX_PYBIND11_EXPORT_TYPE(type_exporter, detail::specializations)
