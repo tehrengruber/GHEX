@@ -87,7 +87,7 @@ struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, A
             if (info.ndim != 3)
                 throw std::runtime_error("Incompatible buffer dimension.");
 
-            return gridtools::ghex::wrap_field<Arch, Layout>(dom, static_cast<T*>(info.ptr), offsets, extents);
+            return gridtools::ghex::wrap_field<Arch, Layout>(dom, static_cast<T*>(info.ptr), offsets, extents, info.strides);
         };
 
         cls.def(py::init(wrapper));
