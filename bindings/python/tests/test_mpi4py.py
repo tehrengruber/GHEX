@@ -1,9 +1,14 @@
-from mpi4py import MPI
 import numpy as np
 import pytest
 
-import ghex
-from ghex.structured.regular import DomainDescriptor, HaloGenerator, FieldDescriptor
+from ghex.structured.regular import (
+    CommunicationObject,
+    DomainDescriptor,
+    FieldDescriptor,
+    HaloGenerator,
+    PatternContainer,
+)
+from ghex.tl import Context
 from ghex.utils.grid import IndexSpace, UnitRange
 
 from fixtures.mpi import mpi_cart_comm, ghex_cart_context
@@ -25,14 +30,14 @@ layout_maps = ((0, 1, 2), (0, 2, 1), (1, 0, 2), (1, 2, 0), (2, 0, 1), (2, 1, 0))
 
 
 def test_context(mpi_cart_comm):
-    context = ghex.tl.Context(mpi_cart_comm)
+    context = Context(mpi_cart_comm)
 
     with pytest.raises(TypeError, match=r"must be `mpi4py.MPI.Comm`, not `<class 'str'>`"):
-        context = ghex.tl.Context("invalid")
+        context = Context("invalid")
 
 
 def test_domain_descriptor(mpi_cart_comm):
-    context = ghex.tl.Context(mpi_cart_comm)
+    context = Context(mpi_cart_comm)
 
     coords = mpi_cart_comm.Get_coords(mpi_cart_comm.Get_rank())
 
@@ -42,7 +47,7 @@ def test_domain_descriptor(mpi_cart_comm):
         * UnitRange(coords[2] * Nz, (coords[2] + 1) * Nz)
     )
 
-    domain_desc = ghex.structured.regular.DomainDescriptor(context.rank(), sub_domain_indices)
+    domain_desc = DomainDescriptor(context.rank(), sub_domain_indices)
 
     assert domain_desc.domain_id() == context.rank()
     assert domain_desc.first() == sub_domain_indices[0, 0, 0]
@@ -56,14 +61,12 @@ def test_halo_gen_construction(mpi_cart_comm, halos):
         UnitRange(0, dims[0] * Nx) * UnitRange(0, dims[1] * Ny) * UnitRange(0, dims[2] * Nz)
     )
 
-    halo_gen = ghex.structured.regular.HaloGenerator(
-        glob_domain_indices, halos, (False, False, False)
-    )
+    halo_gen = HaloGenerator(glob_domain_indices, halos, (False, False, False))
 
 
 @pytest.mark.parametrize("halos", haloss)
 def test_halo_gen_call(mpi_cart_comm, halos):
-    context = ghex.tl.Context(mpi_cart_comm)
+    context = Context(mpi_cart_comm)
 
     periodicity = (False, False, False)
 
@@ -77,11 +80,9 @@ def test_halo_gen_call(mpi_cart_comm, halos):
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
     # construct HaloGenerator
-    halo_gen = ghex.structured.regular.HaloGenerator(
-        global_grid.subset["definition"], halos, periodicity
-    )
+    halo_gen = HaloGenerator(global_grid.subset["definition"], halos, periodicity)
 
-    domain_desc = ghex.structured.regular.DomainDescriptor(context.rank(), owned_indices)
+    domain_desc = DomainDescriptor(context.rank(), owned_indices)
 
     # test generated halos
     halo_indices = halo_gen(domain_desc)
@@ -99,15 +100,16 @@ def test_domain_descriptor_grid(mpi_cart_comm, halos):
     owned_indices = sub_grid.subset["definition"]
     sub_grid.add_subset("halo", owned_indices.extend(*halos).without(owned_indices))
 
-    context = ghex.tl.Context(mpi_cart_comm)
-    domain_desc = ghex.structured.regular.DomainDescriptor(context.rank(), owned_indices)
+    context = Context(mpi_cart_comm)
+    domain_desc = DomainDescriptor(context.rank(), owned_indices)
 
     assert domain_desc.domain_id() == context.rank()
     assert domain_desc.first() == owned_indices.bounds[0, 0, 0]
     assert domain_desc.last() == owned_indices.bounds[-1, -1, -1]
 
 
-def test_pattern(mpi_cart_comm):
+@pytest.mark.parametrize("layout_map", layout_maps)
+def test_pattern(mpi_cart_comm, layout_map):
     Nx, Ny, Nz = 2 * 260, 260, 2
     # Nx, Ny, Nz = 2 * 260, 260, 1
     halos = ((2, 1), (1, 1), (0, 0))
@@ -129,21 +131,33 @@ def test_pattern(mpi_cart_comm):
     #    print(local_grid.bounds)
 
     # domain descriptor
-    context = ghex.tl.Context(mpi_cart_comm)
-    domain_desc = ghex.structured.regular.DomainDescriptor(context.rank(), owned_indices)
+    context = Context(mpi_cart_comm)
+    domain_desc = DomainDescriptor(context.rank(), owned_indices)
 
     # halo generator
-    halo_gen = ghex.structured.regular.HaloGenerator(
-        global_grid.subset["definition"], halos, periodicity
-    )
+    halo_gen = HaloGenerator(global_grid.subset["definition"], halos, periodicity)
     # print("local_local: ", local_local_grid.subset["definition"])
 
-    pattern = ghex.PatternContainer("cpu", (0, 1, 2), context, halo_gen, (domain_desc,))
+    pattern = PatternContainer("cpu", layout_map, context, halo_gen, (domain_desc,))
 
-    co = ghex.CommunicationObject("cpu", (0, 1, 2), context.get_communicator())
+    co = CommunicationObject("cpu", layout_map, context.get_communicator())
+
+    def get_strides(field: np.ndarray, layout_map: tuple[int, ...]) -> tuple[int, ...]:
+        shape = field.shape
+        itemsize = np.dtype(field.dtype).itemsize
+        cumulative_stride = itemsize
+        sorted_layout_map = reversed(tuple(range(0, len(layout_map))))
+        strides = [None] * len(layout_map)
+        for target in sorted_layout_map:
+            index = layout_map.index(target)
+            strides[index] = cumulative_stride
+            cumulative_stride *= shape[index]
+        return tuple(strides)
 
     def make_field():
         field_1 = np.zeros(memory_local_grid.bounds.shape, dtype=np.float64)  # todo: , order='F'
+        strides = get_strides(field_1, layout_map)
+        field_1 = np.lib.stride_tricks.as_strided(field_1, strides=strides)
         gfield_1 = FieldDescriptor(
             "cpu",
             domain_desc,
