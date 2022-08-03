@@ -25,9 +25,11 @@ namespace detail {
         gridtools::meta::list<ghex4py::type_list::domain_descriptor_type>,
         gridtools::meta::list<
             ::gridtools::layout_map<0, 1, 2>,
-            ::gridtools::layout_map<2, 1, 0>,
+            ::gridtools::layout_map<0, 2, 1>,
+            ::gridtools::layout_map<1, 0, 2>,
             ::gridtools::layout_map<1, 2, 0>,
-            ::gridtools::layout_map<2, 0, 1>
+            ::gridtools::layout_map<2, 0, 1>,
+            ::gridtools::layout_map<2, 1, 0>
         >
     >;
 
@@ -40,9 +42,11 @@ namespace detail {
         gridtools::meta::list<ghex4py::type_list::domain_descriptor_type>,
         gridtools::meta::list<
             ::gridtools::layout_map<0, 1, 2>,
-            ::gridtools::layout_map<2, 1, 0>,
+            ::gridtools::layout_map<0, 2, 1>,
+            ::gridtools::layout_map<1, 0, 2>,
             ::gridtools::layout_map<1, 2, 0>,
-            ::gridtools::layout_map<2, 0, 1>
+            ::gridtools::layout_map<2, 0, 1>,
+            ::gridtools::layout_map<2, 1, 0>
         >
     >;
 #endif
