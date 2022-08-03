@@ -173,6 +173,13 @@ private: // implementation
     {
         return {dom, data, offsets, extents, 1, false, device_id};     
     }
+
+    template<typename Arch, typename Layout, typename Strides, typename DomainDescriptor, typename T, typename Array>
+    structured::regular::field_descriptor<T,Arch,DomainDescriptor, Layout>
+    wrap_field(const DomainDescriptor& dom, T* data, const Array& offsets, const Array& extents, const Strides& strides, typename arch_traits<Arch>::device_id_type device_id = 0)
+    {
+        return {dom, data, offsets, extents, strides, 1, false, device_id};
+    }
 } // namespace ghex
 } // namespace gridtools
 
