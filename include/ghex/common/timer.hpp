@@ -45,6 +45,7 @@ namespace gridtools {
             {
                 m_time_point = clock_type::now();
             }
+
             /** @brief stop timings */
             inline double stoc() noexcept
             {

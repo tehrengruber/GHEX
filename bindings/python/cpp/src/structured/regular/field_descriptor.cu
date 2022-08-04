@@ -31,9 +31,9 @@ using int_tuple_constant = gridtools::meta::list<std::integral_constant<int, val
 
 
 namespace detail {
-    using args = gridtools::meta::cartesian_product<
+    using args_gpu = gridtools::meta::cartesian_product<
         gridtools::ghex::bindings::python::type_list::data_types,
-        gridtools::ghex::bindings::python::type_list::architecture_types,
+        gridtools::meta::list<gridtools::ghex::gpu>,
         gridtools::meta::list<
             gridtools::ghex::structured::regular::domain_descriptor<int, std::integral_constant<int, 3>>
         >,
@@ -51,7 +51,7 @@ namespace detail {
     using field_descriptor_type = gridtools::ghex::structured::regular::field_descriptor<
         T, Arch, DomainDescriptor, Layout>;
 
-    using field_descriptor_specializations = gridtools::meta::transform<gridtools::meta::rename<field_descriptor_type>::template apply, args>;
+    using field_descriptor_specializations_gpu = gridtools::meta::transform<gridtools::meta::rename<field_descriptor_type>::template apply, args_gpu>;
 }
 
 // todo: dim independent
@@ -94,7 +94,7 @@ struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, A
     }
 };
 
-GHEX_PYBIND11_EXPORT_TYPE(type_exporter, detail::field_descriptor_specializations)
+GHEX_PYBIND11_EXPORT_TYPE(type_exporter, detail::field_descriptor_specializations_gpu)
 
 /*
 GHEX_PYBIND_EXPORT_IN_CURRENT_MODULE(field_descriptor_exporter,

@@ -30,7 +30,7 @@ namespace bindings {
 namespace python {
 
 struct type_list {
-    using architecture_types = gridtools::meta::list<gridtools::ghex::cpu>; // todo: gpu
+    using architecture_types = gridtools::ghex::arch_list;
     using domain_id_types = gridtools::meta::list<int>;
     using data_types = gridtools::meta::list<double, float>;
 

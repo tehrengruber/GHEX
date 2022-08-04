@@ -46,7 +46,10 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
-find_library(LIBRT rt REQUIRED)
+find_library(LIBRT rt)
+if(NOT LIBRT)
+    find_library(LIBRT c)
+endif()
 
 set(_required_gridtools_version "2.0.0")
 if(NOT _gridtools_already_fetched)
@@ -222,7 +225,23 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
 
     find_python_module(mpi4py)
 
-    pybind11_add_module(ghex_py_bindings bindings/python/cpp/src/ghex.cpp bindings/python/cpp/src/structured/regular/domain_descriptor.cpp bindings/python/cpp/src/structured/regular/field_descriptor.cpp bindings/python/cpp/src/structured/regular/halo_generator.cpp bindings/python/cpp/src/transport_layer/context.cpp)
+    pybind11_add_module(ghex_py_bindings
+        bindings/python/cpp/src/ghex.cpp
+        bindings/python/cpp/src/structured/regular/domain_descriptor.cpp
+        bindings/python/cpp/src/structured/regular/field_descriptor.cpp
+        bindings/python/cpp/src/structured/regular/field_descriptor.cu
+        bindings/python/cpp/src/structured/regular/halo_generator.cpp
+        bindings/python/cpp/src/transport_layer/context.cpp
+        bindings/python/cpp/src/wrappers/buffer_info.cpp
+        bindings/python/cpp/src/wrappers/buffer_info.cu
+        bindings/python/cpp/src/wrappers/communication_handle.cpp
+        bindings/python/cpp/src/wrappers/communication_handle.cu
+        bindings/python/cpp/src/wrappers/communication_object.cpp
+        bindings/python/cpp/src/wrappers/communication_object.cu
+        bindings/python/cpp/src/wrappers/pattern_container.cpp
+        bindings/python/cpp/src/wrappers/pattern_container.cu
+    )
+
     target_include_directories(ghex_py_bindings PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/bindings/python/cpp/include")
     if (HAVE_MPI4PY)
         target_include_directories(ghex_py_bindings PRIVATE "${PY_MPI4PY}/include")
@@ -232,6 +251,16 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
         in the environment in which cmake is invoked.")
     endif()
     target_link_libraries(ghex_py_bindings PRIVATE ghexlib)
+
+    if (USE_GPU)
+        if(${CMAKE_VERSION} VERSION_LESS "3.24.0")
+            # target: P100
+            set_target_properties(ghex_py_bindings PROPERTIES CUDA_ARCHITECTURES "60")
+        else()
+            # target: host gpu
+            set_target_properties(ghex_py_bindings PROPERTIES CUDA_ARCHITECTURES native)
+        endif()
+    endif()
 endif()
 
 include(GNUInstallDirs)
