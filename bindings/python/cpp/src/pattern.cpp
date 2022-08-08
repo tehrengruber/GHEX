@@ -37,7 +37,6 @@ struct pattern_container_exporter {
         cls.def_property_readonly_static("domain_id_type", [] (const pybind11::object&) {
             return gridtools::ghex::bindings::python::utils::demangle<typename pattern_container_type::domain_id_type>();
         });
-        std::cout << "PatternContainer: " << gridtools::ghex::bindings::python::utils::demangle<pattern_container_type>() << std::endl;
         auto make_pattern_wrapper = [] (
                 typename pattern_container_trait::context_type& context,
                 typename pattern_container_trait::halo_generator_type& hgen,
