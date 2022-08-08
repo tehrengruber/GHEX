@@ -103,12 +103,14 @@ struct type_exporter<gridtools::ghex::structured::regular::field_descriptor<T, A
                 error << "Incompatible format: expected a " << typeid(T).name() << " buffer.";
                 throw pybind11::type_error(error.str());
             }
-            std::array<int, 3> buffer_order = {0, 1, 2};
-            std::sort(buffer_order.begin(), buffer_order.end(), [&info](int a, int b) {
-                return info.strides[a] > info.strides[b];
-            });
+
+			auto ordered_strides = info.strides;
+            std::sort(ordered_strides.begin(), ordered_strides.end(), [](int a, int b) { return a > b; });
+            std::array<int, 3> layout_map;
             for (size_t i=0; i<3; ++i) {
-                if (buffer_order[i] != Layout::at(i)) {
+                auto it = std::find(ordered_strides.begin(), ordered_strides.end(), info.strides[i]);
+                layout_map[i] = std::distance(ordered_strides.begin(), it);
+                if (layout_map[i] != Layout::at(i)) {
                     throw pybind11::type_error("Buffer has a different layout than specified.");
                 }
             }
