@@ -249,6 +249,16 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
          Make sure mpi4py is importable in the environment in which cmake is invoked to avoid this.")
     endif()
     target_link_libraries(ghex_py_bindings PRIVATE ghexlib)
+
+	if (USE_GPU)
+        if(${CMAKE_VERSION} VERSION_LESS "3.24.0")
+            # target: P100
+            set_target_properties(ghex_py_bindings PROPERTIES CUDA_ARCHITECTURES "60")
+        else()
+            # target: host gpu
+            set_target_properties(ghex_py_bindings PROPERTIES CUDA_ARCHITECTURES native)
+        endif()
+    endif()
 endif()
 
 include(GNUInstallDirs)
