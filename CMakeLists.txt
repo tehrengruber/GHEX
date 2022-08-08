@@ -46,7 +46,10 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
-find_library(LIBRT rt REQUIRED)
+find_library(LIBRT rt)
+if(NOT LIBRT)
+    find_library(LIBRT c)
+endif()
 
 set(_required_gridtools_version "2.0.0")
 if(NOT _gridtools_already_fetched)
