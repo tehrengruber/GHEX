@@ -88,6 +88,11 @@ def FieldDescriptor(
         else:
             raise ValueError()
 
+    # `strides` field of array interface protocol is empty for C-style contiguous arrays
+    if strides is None:
+        strides = getattr(field, "strides", None)
+    assert strides is not None
+
     if architecture == Architecture.CPU:
         assert hasattr(field, "__array_interface__")
     if architecture == Architecture.GPU:
