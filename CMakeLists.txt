@@ -46,7 +46,10 @@ list(APPEND CMAKE_MODULE_PATH "${GHEX_MODULE_PATH}")
 
 find_package(MPI REQUIRED)
 find_package(Boost REQUIRED)
-find_library(LIBRT rt REQUIRED)
+find_library(LIBRT rt)
+if(NOT LIBRT)
+    find_library(LIBRT c)
+endif()
 
 set(_required_gridtools_version "2.0.0")
 if(NOT _gridtools_already_fetched)
@@ -246,6 +249,16 @@ if (GHEX_BUILD_PYTHON_BINDINGS)
          Make sure mpi4py is importable in the environment in which cmake is invoked to avoid this.")
     endif()
     target_link_libraries(ghex_py_bindings PRIVATE ghexlib)
+
+	if (USE_GPU)
+        if(${CMAKE_VERSION} VERSION_LESS "3.24.0")
+            # target: P100
+            set_target_properties(ghex_py_bindings PROPERTIES CUDA_ARCHITECTURES "60")
+        else()
+            # target: host gpu
+            set_target_properties(ghex_py_bindings PROPERTIES CUDA_ARCHITECTURES native)
+        endif()
+    endif()
 endif()
 
 include(GNUInstallDirs)

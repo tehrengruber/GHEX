@@ -63,6 +63,11 @@ def _layout_order(field: np.ndarray, architecture: Architecture) -> tuple[int, .
     else:
         raise ValueError()
 
+    # `strides` field of array interface protocol is empty for C-style contiguous arrays
+    if strides is None:
+        strides = getattr(field, "strides", None)
+    assert strides is not None
+
     ordered_strides = list(reversed(sorted(strides)))
     layout_map = [ordered_strides.index(stride) for stride in strides]
     # ensure layout map has unique indices in case the size in dimension is one
