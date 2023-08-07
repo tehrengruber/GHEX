@@ -13,7 +13,7 @@ from fixtures.context import *
 
 import ghex.structured
 import ghex.structured.regular as regular
-from ghex.structured.grid import index_space, unit_range
+from ghex.structured.cartesian_sets import index_space, unit_range
 
 # Domain configuration
 Nx = 10

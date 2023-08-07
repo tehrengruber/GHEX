@@ -16,7 +16,7 @@ from fixtures.context import *
 from ghex.util.architecture import architecture
 import ghex.structured
 import ghex.structured.regular as regular
-from ghex.structured.grid import index_space, unit_range
+from ghex.structured.cartesian_sets import index_space, unit_range
 
 
 @pytest.mark.mpi_skip
