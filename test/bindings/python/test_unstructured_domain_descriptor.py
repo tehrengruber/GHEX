@@ -16,7 +16,7 @@ except ImportError:
     cp = None
 
 import ghex
-from ghex.context import make_context
+from fixtures.cuda_stream import STREAM_KINDS, make_stream
 from ghex.unstructured import make_communication_object
 from ghex.unstructured import DomainDescriptor
 from ghex.unstructured import HaloGenerator
@@ -214,15 +214,12 @@ domains = {
 LEVELS = 2
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32, np.int32, np.int64])
-@pytest.mark.parametrize("gpu_and_stream", (
-    (False, None),
-    (True, None),
-    (True, {"null": True}),
-    (True, {"non_blocking": True}),
-))
+@pytest.mark.parametrize(
+    "gpu_and_stream", [(False, None)] + [(True, kind) for kind in STREAM_KINDS]
+)
 @pytest.mark.mpi
-def test_domain_descriptor(gpu_and_stream, capsys, cart_context, dtype):
-    gpu, stream_args = gpu_and_stream
+def test_domain_descriptor(gpu_and_stream, cart_context, dtype):
+    gpu, stream_kind = gpu_and_stream
     if gpu:
         if cp is None:
             pytest.skip("`CuPy` is not installed.")
@@ -231,10 +228,9 @@ def test_domain_descriptor(gpu_and_stream, capsys, cart_context, dtype):
         if not ghex.__config__["gpu"]:
             pytest.skip("`GHEX` was not compiled with GPU support.")
 
-    # `stream_args is None` selects a plain exchange, with the cupy arrays living
-    # on the cupy default stream; otherwise a scheduled exchange is run on the
-    # requested stream (the null/default stream or a non-blocking one).
-    cuda_stream = cp.cuda.Stream(**stream_args) if stream_args else None
+    # `stream_kind is None` selects a plain exchange, with the cupy arrays living on the
+    # cupy default stream; otherwise a scheduled exchange is run on the requested stream.
+    ghex_stream, cuda_stream = (None, None) if stream_kind is None else make_stream(stream_kind)
 
     ctx = cart_context
     assert ctx.size() == 4
@@ -268,10 +264,7 @@ def test_domain_descriptor(gpu_and_stream, capsys, cart_context, dtype):
         field = make_field_descriptor(domain_desc, data)
         return data, field
 
-    def check_field(data, order):
-        if gpu:
-            # NOTE: Without the explicit order it fails sometimes.
-            data = cp.asnumpy(data, order=order)
+    def check_field(data):
         inner_set = set(domains[ctx.rank()]["inner"])
         all_list = domains[ctx.rank()]["all"]
         for x in range(len(all_list)):
@@ -284,21 +277,29 @@ def test_domain_descriptor(gpu_and_stream, capsys, cart_context, dtype):
                         data[x, l] - 1000 * int((data[x, l]) / 1000)
                     ) == 10 * gid + l
 
-    def exchange(buffer_infos):
-        if cuda_stream is None:
+    def exchange(buffer_infos, arrays):
+        # NOTE: the explicit order is needed, without it it fails sometimes.
+        if stream_kind is None:
             if gpu:
                 cp.cuda.Device().synchronize()
             handle = co.exchange(buffer_infos)
             handle.wait()
-        else:
-            if not stream_args.get("null"):
-                cuda_stream.wait_event(cp.cuda.get_current_stream().record())
-            handle = co.schedule_exchange(cuda_stream, buffer_infos)
-            assert not co.has_scheduled_exchange()
-            handle.schedule_wait(cuda_stream)
-            assert co.has_scheduled_exchange()
-            handle.wait()
-            assert not co.has_scheduled_exchange()
+            return [cp.asnumpy(a, order=o) for a, o in arrays] if gpu else [a for a, _ in arrays]
+
+        if cuda_stream.ptr != 0:
+            cuda_stream.wait_event(cp.cuda.get_current_stream().record())
+        handle = co.schedule_exchange(ghex_stream, buffer_infos)
+        assert not co.has_scheduled_exchange()
+        handle.schedule_wait(ghex_stream)
+        assert co.has_scheduled_exchange()
+        # Read back synchronizing on the scheduled stream only, before `wait()`: this
+        # is what checks that the unpack is ordered against the stream, rather than
+        # merely made visible by the host-blocking sync inside `wait()`.
+        host = [cp.asnumpy(a, order=o, stream=cuda_stream, blocking=True) for a, o in arrays]
+        assert co.has_scheduled_exchange()
+        handle.wait()
+        assert not co.has_scheduled_exchange()
+        return host
 
     halo_gen = HaloGenerator.from_gids(domains[ctx.rank()]["outer"])
     pattern = make_pattern(ctx, halo_gen, [domain_desc])
@@ -307,7 +308,5 @@ def test_domain_descriptor(gpu_and_stream, capsys, cart_context, dtype):
     d1, f1 = make_field("C")
     d2, f2 = make_field("F")
 
-    exchange([pattern(f1), pattern(f2)])
-
-    check_field(d1, "C")
-    check_field(d2, "F")
+    for data in exchange([pattern(f1), pattern(f2)], [(d1, "C"), (d2, "F")]):
+        check_field(data)

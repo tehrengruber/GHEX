@@ -34,6 +34,11 @@ register_communication_object(nanobind::module_& m)
 {
     auto _communication_object = register_class<communication_object_shim>(m);
 
+#if defined(GHEX_CUDACC)
+    _communication_object.def("has_scheduled_exchange",
+        [](communication_object_shim& co) -> bool { return co.has_scheduled_exchange(); });
+#endif
+
     gridtools::for_each<
         gridtools::meta::transform<gridtools::meta::list, communication_object_specializations>>(
         [&m, &_communication_object](auto l)
@@ -121,8 +126,6 @@ register_communication_object(nanobind::module_& m)
                             },
                             nanobind::keep_alive<0, 1>(), nanobind::arg("stream").none(),
                             nanobind::arg("b0"), nanobind::arg("b1"), nanobind::arg("b2"))
-                        .def("has_scheduled_exchange", [](communication_object_shim& co) -> bool
-                            { return co.has_scheduled_exchange(); })
 #endif // end scheduled exchange
                         ;
                 });

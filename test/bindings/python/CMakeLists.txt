@@ -54,7 +54,8 @@ add_dependencies(pyghex_tests pyghex_files)
 add_dependencies(pyghex_tests setup_test_env)
 
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/fixtures FILES
-    ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py)
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/context.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cuda_stream.py)
 copy_files(TARGET pyghex_tests DESTINATION ${CMAKE_CURRENT_BINARY_DIR} FILES
     ${CMAKE_CURRENT_SOURCE_DIR}/conftest.py)
 

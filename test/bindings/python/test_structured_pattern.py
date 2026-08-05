@@ -18,6 +18,7 @@ except ImportError:
     cp = None
 
 import ghex
+from fixtures.cuda_stream import STREAM_KINDS, make_stream
 from ghex.context import make_context
 from ghex.util import Architecture
 from ghex.structured.cartesian_sets import IndexSpace
@@ -40,16 +41,13 @@ halos_per_dim = ((2, 1), (1, 2), (1, 1))
 
 
 @pytest.mark.mpi
-@pytest.mark.parametrize("gpu_and_stream", (
-    (False, None),
-    (True, None),
-    (True, {"null": True}),
-    (True, {"non_blocking": True}),
-))
+@pytest.mark.parametrize(
+    "gpu_and_stream", [(False, None)] + [(True, kind) for kind in STREAM_KINDS]
+)
 @pytest.mark.parametrize("periodic", [True, False])
 @pytest.mark.parametrize("ndim", [1, 2, 3])
 def test_pattern(capsys, ndim, periodic, gpu_and_stream):
-    gpu, stream_args = gpu_and_stream
+    gpu, stream_kind = gpu_and_stream
     if gpu:
         if cp is None:
             pytest.skip("`CuPy` is not installed.")
@@ -62,10 +60,9 @@ def test_pattern(capsys, ndim, periodic, gpu_and_stream):
     else:
         xp = np
         arch = Architecture.CPU
-    # `stream_args is None` selects a plain exchange, with the cupy arrays living
-    # on the cupy default stream; otherwise a scheduled exchange is run on the
-    # requested stream (the null/default stream or a non-blocking one).
-    cuda_stream = cp.cuda.Stream(**stream_args) if stream_args else None
+    # `stream_kind is None` selects a plain exchange, with the cupy arrays living on the
+    # cupy default stream; otherwise a scheduled exchange is run on the requested stream.
+    ghex_stream, cuda_stream = (None, None) if stream_kind is None else make_stream(stream_kind)
 
     mpi_comm = MPI.COMM_WORLD
 
@@ -119,24 +116,31 @@ def test_pattern(capsys, ndim, periodic, gpu_and_stream):
         )
         return field_1, gfield_1
 
-    def exchange(buffer_infos):
-        if cuda_stream is None:
+    def exchange(buffer_infos, arrays):
+        if stream_kind is None:
             if gpu:
                 cp.cuda.Device().synchronize()
             res = co.exchange(buffer_infos)
             res.wait()
-        else:
-            # The fields were initialized on the cupy default stream. Unless we are
-            # scheduling on that same (null) stream, make `cuda_stream` wait for
-            # them so they are not packed prematurely.
-            if not stream_args.get("null"):
-                cuda_stream.wait_event(cp.cuda.get_current_stream().record())
-            res = co.schedule_exchange(cuda_stream, buffer_infos)
-            assert not co.has_scheduled_exchange()
-            res.schedule_wait(cuda_stream)
-            assert co.has_scheduled_exchange()
-            res.wait()
-            assert not co.has_scheduled_exchange()
+            return [cp.asnumpy(a, order="F") for a in arrays] if gpu else list(arrays)
+
+        # The fields were initialized on the cupy default stream. Unless we are
+        # scheduling on that same (null) stream, make `cuda_stream` wait for
+        # them so they are not packed prematurely.
+        if cuda_stream.ptr != 0:
+            cuda_stream.wait_event(cp.cuda.get_current_stream().record())
+        res = co.schedule_exchange(ghex_stream, buffer_infos)
+        assert not co.has_scheduled_exchange()
+        res.schedule_wait(ghex_stream)
+        assert co.has_scheduled_exchange()
+        # Read back synchronizing on the scheduled stream only, before `wait()`: this
+        # is what checks that the unpack is ordered against the stream, rather than
+        # merely made visible by the host-blocking sync inside `wait()`.
+        host = [cp.asnumpy(a, order="F", stream=cuda_stream, blocking=True) for a in arrays]
+        assert co.has_scheduled_exchange()
+        res.wait()
+        assert not co.has_scheduled_exchange()
+        return host
 
     # one field per dimension, each storing the owner's coordinate in that dimension
     fields = []
@@ -148,18 +152,12 @@ def test_pattern(capsys, ndim, periodic, gpu_and_stream):
     for p_dim, p_coord_l in enumerate(p_coord):
         fields[p_dim][...] = p_coord_l
 
-    exchange([pattern(gfield) for gfield in gfields])
+    fields = exchange([pattern(gfield) for gfield in gfields], fields)
 
     rank_field, grank_field = make_field()
     rank_field[...] = ctx.rank()
-    exchange(
-        [pattern(grank_field)]
-    )  # arch, dtype. exchange of fields living on cpu+gpu possible
-
-    # copy the results back to the host for checking
-    if gpu:
-        fields = [cp.asnumpy(field) for field in fields]
-        rank_field = cp.asnumpy(rank_field)
+    # arch, dtype. exchange of fields living on cpu+gpu possible
+    (rank_field,) = exchange([pattern(grank_field)], [rank_field])
 
     with capsys.disabled():
         print("post_ex:")
