@@ -6,3 +6,5 @@ ghex_reg_parallel_test(user_concepts 2 true)
 ghex_compile_test(inline_unpack_race)
 ghex_reg_parallel_test(inline_unpack_race 2 false)
 
+ghex_compile_test(large_halo)
+ghex_reg_parallel_test(large_halo 2 false)
