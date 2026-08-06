@@ -122,7 +122,7 @@ def test_pattern(capsys, ndim, periodic, gpu_and_stream):
                     cp.cuda.Device().synchronize()
                 res = co.exchange(buffer_infos)
                 res.wait()
-                return [cp.asnumpy(a, order="F") for a in arrays] if gpu else list(arrays)
+                return [cp.asnumpy(a) for a in arrays] if gpu else list(arrays)
 
             # The fields were initialized on the cupy default stream. Unless we are
             # scheduling on that same (null) stream, make `cuda_stream` wait for
@@ -136,7 +136,7 @@ def test_pattern(capsys, ndim, periodic, gpu_and_stream):
             # Read back synchronizing on the scheduled stream only, before `wait()`:
             # this is what checks that the unpack is ordered against the stream,
             # rather than merely made visible by the host-blocking sync in `wait()`.
-            host = [cp.asnumpy(a, order="F", stream=cuda_stream, blocking=True) for a in arrays]
+            host = [cp.asnumpy(a, stream=cuda_stream, blocking=True) for a in arrays]
             assert co.has_scheduled_exchange()
             res.wait()
             assert not co.has_scheduled_exchange()

@@ -278,13 +278,12 @@ def test_domain_descriptor(gpu_and_stream, cart_context, dtype):
                     ) == 10 * gid + l
 
     def exchange(buffer_infos, arrays):
-        # NOTE: the explicit order is needed, without it it fails sometimes.
         if stream_kind is None:
             if gpu:
                 cp.cuda.Device().synchronize()
             handle = co.exchange(buffer_infos)
             handle.wait()
-            return [cp.asnumpy(a, order=o) for a, o in arrays] if gpu else [a for a, _ in arrays]
+            return [cp.asnumpy(a) for a in arrays] if gpu else list(arrays)
 
         if cuda_stream.ptr != 0:
             cuda_stream.wait_event(cp.cuda.get_current_stream().record())
@@ -295,7 +294,7 @@ def test_domain_descriptor(gpu_and_stream, cart_context, dtype):
         # Read back synchronizing on the scheduled stream only, before `wait()`: this
         # is what checks that the unpack is ordered against the stream, rather than
         # merely made visible by the host-blocking sync inside `wait()`.
-        host = [cp.asnumpy(a, order=o, stream=cuda_stream, blocking=True) for a, o in arrays]
+        host = [cp.asnumpy(a, stream=cuda_stream, blocking=True) for a in arrays]
         assert co.has_scheduled_exchange()
         handle.wait()
         assert not co.has_scheduled_exchange()
@@ -308,5 +307,5 @@ def test_domain_descriptor(gpu_and_stream, cart_context, dtype):
     d1, f1 = make_field("C")
     d2, f2 = make_field("F")
 
-    for data in exchange([pattern(f1), pattern(f2)], [(d1, "C"), (d2, "F")]):
+    for data in exchange([pattern(f1), pattern(f2)], [d1, d2]):
         check_field(data)

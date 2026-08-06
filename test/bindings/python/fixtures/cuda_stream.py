@@ -23,9 +23,7 @@ class CUDAStreamProtocolMock:
         return 0, self.stream.ptr
 
 
-# Exposes `.ptr` and nothing else, the way cupy streams did before they grew
-# `__cuda_stream__`. Recent cupy streams implement the protocol, so `extract_cuda_stream`
-# resolves them there and its `.ptr` fallback would otherwise never be reached.
+# Exposes `.ptr` and nothing else, the way cupy streams do up to cupy 13.
 class PtrOnlyStreamMock:
     def __init__(self, stream):
         self.ptr = stream.ptr
@@ -35,6 +33,11 @@ class PtrOnlyStreamMock:
 # they cover all three branches of `extract_cuda_stream`: "default" the `nullptr` one,
 # "protocol" the `__cuda_stream__` one, "ptr" the `.ptr` one. "null" and "non_blocking"
 # are there for the stream semantics rather than the conversion.
+#
+# Both mocks are needed because a real cupy stream only reaches one branch, and which
+# one depends on the installed version: cupy 13 streams expose `.ptr` alone, cupy 14
+# streams also implement `__cuda_stream__` and so are resolved there instead. Without
+# the mocks, whichever branch the installed cupy does not exercise goes untested.
 STREAM_KINDS = (None, "default", "null", "non_blocking", "protocol", "ptr")
 
 
