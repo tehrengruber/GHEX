@@ -23,10 +23,19 @@ class CUDAStreamProtocolMock:
         return 0, self.stream.ptr
 
 
-# `None` selects a plain exchange; the others select a scheduled exchange and between
-# them cover all three branches of `extract_cuda_stream`: "default" the `nullptr` one,
-# "null" and "non_blocking" the `.ptr` one, "protocol" the `__cuda_stream__` one.
-STREAM_KINDS = (None, "default", "null", "non_blocking", "protocol")
+# Exposes `.ptr` and nothing else, the way cupy streams did before they grew
+# `__cuda_stream__`. Recent cupy streams implement the protocol, so `extract_cuda_stream`
+# resolves them there and its `.ptr` fallback would otherwise never be reached.
+class PtrOnlyStreamMock:
+    def __init__(self, stream):
+        self.ptr = stream.ptr
+
+
+# `None` selects a plain exchange; the others select a scheduled exchange. Between them
+# they cover all three branches of `extract_cuda_stream`: "default" the `nullptr` one,
+# "protocol" the `__cuda_stream__` one, "ptr" the `.ptr` one. "null" and "non_blocking"
+# are there for the stream semantics rather than the conversion.
+STREAM_KINDS = (None, "default", "null", "non_blocking", "protocol", "ptr")
 
 
 def make_stream(kind):
@@ -37,4 +46,6 @@ def make_stream(kind):
     stream = cp.cuda.Stream(null=True) if kind == "null" else cp.cuda.Stream(non_blocking=True)
     if kind == "protocol":
         return CUDAStreamProtocolMock(stream), stream
+    if kind == "ptr":
+        return PtrOnlyStreamMock(stream), stream
     return stream, stream
